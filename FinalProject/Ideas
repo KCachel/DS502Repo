@@ -2,9 +2,9 @@ Ideas:
 
 1 name - (unique) potential for Word Frequency 
 2 Comments - num (keep) [X]EDA
-3 description - (unique) potential for Word Frequency {x} EDA with list of word freq
+3 description - (unique) potential for Word Frequency {x} EDA with list of word 
 4 duration - num (keep)[X]EDA
-5 event - factor (keep)
+5 event - factor (keep)[X]EDA
 6 film_date - date (keep)
 7 languages - num (keep) [x]EDA
 8 main_speaker - REMOVE
@@ -12,7 +12,7 @@ Ideas:
 10 published_date - time (keep)
 11 rating - REMOVE
 12 related_talks - REMOVE
-13 speaker_occupation - (unique) potential for Word Freq
+13 speaker_occupation - {X}EDA
 14 tags - DO word freq
 15 title - Do word Freq [X]EDA with word frequency
 16 url - REMOVE
