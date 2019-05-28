@@ -1,19 +1,39 @@
+---
+title: "FinalReport"
+author: "Kathleen Cachel"
+date: "5/28/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Predicting TED Talk Views
+
+```{r initialize, echo=TRUE, warning=FALSE}
 library(ggplot2) # Data visualisation
 library(reshape2)
 library(corrplot)
 library(dplyr) 
 library(ggthemes)
-#library(stringr) # String manipulation
 library(anytime)
-#library(data.table)
 library(lubridate)
-
+library(ggpubr)
 TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
 
-###############################################
-#EDA for nums: comments, duration, languages
-###############################################
+```
 
+## Exploratory Data Analysis 
+
+The TED Talk dataset contains entries for 2550 talks on the TED website and contains 17 variables (of which the predictor **views** is one). Some variables are useful as is and some require data munging or transformation. Below we work through the variables and outline their potential transformations. 
+
+### Variable: comments
+The variable **comments** is an interger denoting how many top level comments are posted to a talks site. Without knowing all that much it seems a reasonable hypothesis would be comments is a decent predictor of **views**.  
+
+Below is a histogram graph binning TED talks by the number of comments on the talk's site. We can see the median (black) is left of the average (red), indicating it is right skewed. 
+
+```{r eda comments}
 #Number of Comments
 #Histogram Graph
 ggplot(data=TedRaw, aes(x=comments)) +
@@ -25,51 +45,28 @@ ggplot(data=TedRaw, aes(x=comments)) +
   labs(x = "Number of Comments", y = "Count of TED Talks",
        title = "Histogram of Comments")+
   scale_x_continuous(breaks = pretty(TedRaw$comments, n = 22))
-
-#Non-hist version and data manipulation
-comments <- TedRaw %>%
-  group_by(comments) %>%
-  tally(name ="numTalks")
-
-#Number of Comments bar graph
-ggplot(data=comments, aes(x=comments, y=numTalks)) +
-  #geom_point(stat = "identity", aes(color = '#fa9fb5'))+
-  geom_bar(stat = "identity", fill = '#fa9fb5')+
-  geom_vline(aes(xintercept = mean(TedRaw$comments)),col='red',
-             size=.5, linetype="dotted")+
-  geom_vline(aes(xintercept = median(TedRaw$comments)),col='black',
-             size=.5, linetype="dotted")+
-  labs(x = "Number of comments", y = "Count of TED Talks",
-       title = "Talks by number of comments")+
-  scale_x_continuous(breaks = pretty(TedRaw$comments, n = 20))
+```
 
 
+Below is a plot of the observation with **comments** on the X-axis and **views** on the Y-axis. We can see that the R value is 0.53 and the p value is significant. Based on this information, we will likely keep the **comments** variable in future models. 
 
-library(ggpubr)
+```{r EDA cor comments}
 ggscatter(TedRaw, x = "comments", y = "views", 
           add = "reg.line", conf.int = TRUE, color = "blue",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "comments", ylab = "views")
+```
 
+### Variable: duration
+The variable **duration** is an interger denoting how long a TED Talk is in seconds. Without knowing much we might assume that longer talks have less views since people may be less inclined to watch longer videos. 
 
-#######################
+Below is a histogram graph binning TED talks by their length.  We can see the median (black) is pretty close to the average (red). It looks like the majority of talks are under 1200 seconds, and the most are around 1000-1200.
+
+```{r EDA duration}
 #Duration of Talk
 duration <- TedRaw %>%
   group_by(duration) %>%
   tally(name ="numTalks") 
-
-#Duration bar graph
-ggplot(data=duration, aes(x=duration, y=numTalks)) +
-  geom_point(stat = "identity", aes(color = '#fa9fb5'))+
-  #geom_bar(stat = "identity", fill = '#fa9fb5')+
-  geom_vline(aes(xintercept = mean(TedRaw$duration)),col='red',
-             size=.5, linetype="dotted")+
-  geom_vline(aes(xintercept = median(TedRaw$duration)),col='black',
-             size=.5, linetype="dotted")+
-  labs(x = "Duration (s)", y = "Count of TED Talks",
-       title = "Talks by length")+
-  scale_x_continuous(breaks = pretty(TedRaw$duration, n = 20))
-
 
 #histogram
 ggplot(data=TedRaw, aes(x=duration)) +
@@ -82,16 +79,24 @@ ggplot(data=TedRaw, aes(x=duration)) +
        title = "Histogram of Talk Length (s)")+
   scale_x_continuous(breaks = pretty(TedRaw$duration, n = 22))+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+
+Is **duration** correlated with **views**? Not really.Below is a plot of the observation with **duration** on the X-axis and **views** on the Y-axis. We can see that the R value is pretty small (0.049) and the p value is significant. Based on this information, we will likely keep the **duration** variable in future models, but be mindful that it may have little effect.
+
+```{r EDA cor duration}
 ggscatter(TedRaw, x = "duration", y = "views", 
           add = "reg.line", conf.int = TRUE, color = "blue",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "duration (s)", ylab = "views")
+```
 
 
+### Variable: languages
+The variable **languages** is an integer denoting how manuy languages the talk is available to view in. Presumeably an increase in translations should increas views. 
 
-#################
-
+In the graph below we can see that there is a fairly normal distribution for the number of languages. 
+```{r}
 languages <- TedRaw %>%
   group_by(languages) %>%
   tally(name ="numTalks") 
@@ -108,18 +113,15 @@ ggplot(data=languages, aes(x=languages, y=numTalks)) +
   labs(x = "Number of available languages", y = "Count of TED Talks",
        title = "Talks available in translated languages")+
   scale_x_continuous(breaks = pretty(TedRaw$languages, n = 20))
-
-ggscatter(TedRaw, x = "languages", y = "views", 
-          add = "reg.line", conf.int = TRUE, color = "blue",
-          cor.coef = TRUE, cor.method = "pearson",
-          xlab = "languages", ylab = "views")
+```
 
 
-###############################################
-#EDA for factors: Occupation, event
-###############################################
+Is **languages** correlated with **views**? A little.. Below we can see that the R - value is 0.38 and is statistically significant. We will keep the variable in future models. 
 
+### Variable: speaker_occupation
+The variable **speaker_occupation** is the occupation of the main speaker. There are 1459 unique occupations. Below is a graph indicating the top 15 occupations. Since they make up 402 talks (16%) it could be worth exploring breaking the top 15 or 10 occupations into boolean predictors in a future model.
 
+```{r EDA speaker occupation}
 ##speaker occupation
 speaker_occupation <- TedRaw %>%
   group_by(speaker_occupation) %>%
@@ -129,22 +131,17 @@ speaker_occupationtop <- arrange(speaker_occupation, desc(numTalks))
 speaker_occupationtop <- head(speaker_occupationtop,15)
 
 ggplot(data=speaker_occupationtop, aes(x=speaker_occupation, y=numTalks)) +
-  #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
   geom_bar(stat = "identity", fill = '#c51b8a')+
   geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
   labs(x = "Speaker Occupation", y = "Count of TED Talks",
        title = "Talks by 15 most popular speaker occupations")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
-#event
+### Variable: event
+The variable **event** is the name of the TED event the TED Talk was given at. There are 355 unique events. Below is a graph showing the top events. Since they make up 1283 (50%) of the talks, there is potential to break this into boolean predictors. Something to be aware of is that the events mostly contain a year in the name so this variable could contain duplicate information as the **filmed_date** variable, so we would likely want to select only one to loop into future models.
 
-event <- TedRaw %>%
-  group_by(event) %>%
-  tally(name ="numTalks") 
-
-eventtop <- arrange(event, desc(numTalks))
-eventtop <- head(eventtop,20)
-
+```{r EDA event}
 ggplot(data=eventtop, aes(x=event, y=numTalks)) +
   #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
   geom_bar(stat = "identity", fill = '#c51b8a')+
@@ -152,11 +149,12 @@ ggplot(data=eventtop, aes(x=event, y=numTalks)) +
   labs(x = "Event", y = "Count of TED Talks",
        title = "Talks by 20 most popular Events")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+### Variable: filmed_date
+The variable **filmed_date** is the date the TED Talk was filmed. Below is a plot of TED talks by their film date. We likely won't use *filmed_date** as predictor in favore of **event**.
 
-###############################################
-#EDA for time data:
-###############################################
+```{r EDA filmed_date}
 #film_date
 film_date <- anydate(TedRaw$film_date)
 TedRaw$film_date_clean <- film_date
@@ -170,8 +168,12 @@ ggplot(data = film_date_clean, aes(x = film_date_clean, y = numTalks))+
   geom_line(color = "#feb24c")+
   labs(x = "Date", y = "Count of TED Talks",
        title = "Talks by film date")
+```
 
-##########################
+### Variable: published_date
+The variable **published_date** is the date the TED Talk was published to the TED website. Below are 3 graphs, the first indicating the talks based on their publishing date, then talks based on week day of publish, and talks based on month of publish. The months show no distinct trend. The days of the week indicates the majority of talks are posted on weekdays. 
+
+```{r EDA published_date}
 #published_date
 
 TedRaw$published_date_clean <- anydate(TedRaw$published_date)
@@ -185,12 +187,6 @@ ggplot(data = published_date_clean, aes(x = published_date_clean, y = numTalks))
   labs(x = "Date", y = "Count of TED Talks",
        title = "Talks by published date")
 
-
-ggscatter(TedRaw, x = "published_date_clean", y = "views", 
-          add = "reg.line", conf.int = TRUE, color = "blue",
-          cor.coef = TRUE, cor.method = "pearson",
-          xlab = "published date", ylab = "views")
-
 #day of week
 
 TedRaw$published_date_wday <- wday(TedRaw$published_date_clean, label = TRUE)
@@ -198,7 +194,6 @@ TedRaw$published_date_wday <- wday(TedRaw$published_date_clean, label = TRUE)
 published_date_wday <- TedRaw %>%
   group_by(published_date_wday) %>%
   tally(name ="numTalks") 
-
 
 ggplot(data=published_date_wday, aes(x=published_date_wday, y=numTalks)) +
   #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
@@ -223,4 +218,34 @@ ggplot(data=published_date_month, aes(x=published_date_month, y=numTalks)) +
   labs(x = "Day of week", y = "Count of TED Talks",
        title = "Talks by published date (month)")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+
+Below we test for correlation and we can see that **published_date** is not correlated with views. In order to simplify we may want to keep **published_date** out of future models. 
+
+```{r eda cor publisheddate}
+ggscatter(TedRaw, x = "published_date_clean", y = "views", 
+          add = "reg.line", conf.int = TRUE, color = "blue",
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "published date", ylab = "views")
+```
+
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
