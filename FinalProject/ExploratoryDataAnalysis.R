@@ -8,7 +8,7 @@ library(ggthemes)
 #library(data.table)
 
 
-TedRaw <- read.csv(file="ted_main.csv", header=TRUE, sep=",")
+TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
 
 ###############################################
 #EDA for nums: comments, duration, languages
@@ -92,4 +92,41 @@ ggplot(data=languages, aes(x=languages, y=numTalks)) +
   scale_x_continuous(breaks = pretty(TedRaw$languages, n = 20))
 
 
+###############################################
+#EDA for factors: Occupation, event
+###############################################
+
+
+##speaker occupation
+speaker_occupation <- TedRaw %>%
+  group_by(speaker_occupation) %>%
+  tally(name ="numTalks") 
+
+speaker_occupationtop <- arrange(speaker_occupation, desc(numTalks))
+speaker_occupationtop <- head(speaker_occupationtop,15)
+
+ggplot(data=speaker_occupationtop, aes(x=speaker_occupation, y=numTalks)) +
+  #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
+  geom_bar(stat = "identity", fill = '#2b8cbe')+
+  geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
+  labs(x = "Speaker Occupation", y = "Count of TED Talks",
+       title = "Talks by 15 most popular speaker occupations")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#event
+
+event <- TedRaw %>%
+  group_by(event) %>%
+  tally(name ="numTalks") 
+
+eventtop <- arrange(event, desc(numTalks))
+eventtop <- head(eventtop,20)
+
+ggplot(data=eventtop, aes(x=event, y=numTalks)) +
+  #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
+  geom_bar(stat = "identity", fill = '#2b8cbe')+
+  geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
+  labs(x = "Event", y = "Count of TED Talks",
+       title = "Talks by 20 most popular Events")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
