@@ -171,8 +171,8 @@ ggplot(data=eventtop, aes(x=event, y=numTalks)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-### Variable: filmed_date
-The variable **filmed_date** is the date the TED Talk was filmed. Below is a plot of TED talks by their film date. We likely won't use *filmed_date** as predictor in favore of **event**.
+### Variable: film_date
+The variable **film_date** is the date the TED Talk was filmed. Below is a plot of TED talks by their film date. We likely won't use *film_date** as predictor in favor of **event**.
 
 ```{r EDA filmed_date}
 #film_date
