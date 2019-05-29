@@ -20,6 +20,8 @@ library(ggthemes)
 library(anytime)
 library(lubridate)
 library(ggpubr)
+library(tm)
+library(tidyverse)
 TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
 
 ```
@@ -121,6 +123,7 @@ Is **languages** correlated with **views**? A little.. Below we can see that the
 ### Variable: speaker_occupation
 The variable **speaker_occupation** is the occupation of the main speaker. There are 1459 unique occupations. Below is a graph indicating the top 15 occupations. Since they make up 402 talks (16%) it could be worth exploring breaking the top 15 or 10 occupations into boolean predictors in a future model.
 
+
 ```{r EDA speaker occupation}
 ##speaker occupation
 speaker_occupation <- TedRaw %>%
@@ -138,10 +141,27 @@ ggplot(data=speaker_occupationtop, aes(x=speaker_occupation, y=numTalks)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+### Variable: num_speaker
+The variable **num_speaker** contains the number of speakers in the TED talk.In the graph below we can see the overwhelming majority of talks had 1 speaker. This isn't really an interesting metric and will likely not be included in future models. 
+
+```{r}
+ggscatter(TedRaw, x = "num_speaker", y = "views", 
+          add = "reg.line", conf.int = TRUE, color = "blue",
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "number of speakers", ylab = "views")
+```
+
+
 ### Variable: event
 The variable **event** is the name of the TED event the TED Talk was given at. There are 355 unique events. Below is a graph showing the top events. Since they make up 1283 (50%) of the talks, there is potential to break this into boolean predictors. Something to be aware of is that the events mostly contain a year in the name so this variable could contain duplicate information as the **filmed_date** variable, so we would likely want to select only one to loop into future models.
 
 ```{r EDA event}
+event <- TedRaw %>%
+  group_by(event) %>%
+  tally(name ="numTalks") 
+
+eventtop <- arrange(event, desc(numTalks))
+eventtop <- head(eventtop,20)
 ggplot(data=eventtop, aes(x=event, y=numTalks)) +
   #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
   geom_bar(stat = "identity", fill = '#c51b8a')+
@@ -230,6 +250,116 @@ ggscatter(TedRaw, x = "published_date_clean", y = "views",
           xlab = "published date", ylab = "views")
 ```
 
+
+### Variable: title
+The variable **title** is the official title of the TED Talk. There are 2550 unique titles. Including the full title as a predictor really isn't worthwhile, but there may some common words that we could as as boolean predictors to our model. 
+
+
+Below is a word frequency analysis on the title value. Outputted are the top 20 words. The majority of which would make good boolean predictors for future models. 
+```{r EDA title, warning=FALSE}
+title_corpus <- Corpus(VectorSource(TedRaw$title))
+
+# Convert the text to lower case
+title_corpus <- tm_map(title_corpus, content_transformer(tolower))
+# Remove numbers
+title_corpus <- tm_map(title_corpus, removeNumbers)
+# Remove english common stopwords
+title_corpus <- tm_map(title_corpus, removeWords, stopwords("english"))
+# Remove punctuation
+title_corpus <- tm_map(title_corpus, removePunctuation)
+
+dtm_title <- TermDocumentMatrix(title_corpus)
+m_title <- as.matrix(dtm_title)
+v_title <- sort(rowSums(m_title),decreasing=TRUE)
+d_title <- data.frame(word = names(v_title),freq=v_title)
+head(d_title, 20)
+```
+
+### Variable: description
+The variable **description** is a snippet of text summarizing what the talk is about. There are 2550 unique descriptions. Including the full description as a predictor really isn't feasible, but there may some common words that we could as as boolean predictors to our model. 
+
+
+Below is a word frequency analysis on the description value. Outputted are the top 50 words. These words feel less like they capture the theme of the talk than the title, but a few might still make decent boolean predictors for future models. 
+
+```{r EDA description, warning=FALSE}
+description_corpus <- Corpus(VectorSource(TedRaw$description))
+
+# Convert the text to lower case
+description_corpus <- tm_map(description_corpus, content_transformer(tolower))
+# Remove numbers
+description_corpus <- tm_map(description_corpus, removeNumbers)
+# Remove english common stopwords
+description_corpus <- tm_map(description_corpus, removeWords, stopwords("english"))
+# Remove punctuation
+description_corpus <- tm_map(description_corpus, removePunctuation)
+
+dtm_description <- TermDocumentMatrix(description_corpus)
+m_description <- as.matrix(dtm_description)
+v_description <- sort(rowSums(m_description),decreasing=TRUE)
+d_description <- data.frame(word = names(v_description),freq=v_description)
+head(d_description, 50)
+```
+
+
+### Variable: tags
+The variable **tags** is a set of phrases that describe that talk. Each talk has a few tags associated with. Below is a word frequency analysis on the top 20 tags. These would likely make great boolean predictors since they appear fairly frequently amongst the dataset.  
+
+
+```{r EDA tags, echo=TRUE, warning=FALSE}
+TedRaw$tags <- TedRaw$tags %>%
+  str_replace_all('\\[','') %>% 
+  str_replace_all('\\]','')   %>% 
+  str_replace_all("\\'",' ') %>% 
+  str_replace_all(',',' ') %>% 
+  tolower()
+
+#talk_tags <- unnest_tokens(ted3,tags1,tags) %>% select(sno,tags1)
+#datatable(head(talk_tags,10))
+
+tags_corpus <- Corpus(VectorSource(TedRaw$tags))
+
+# Remove punctuation
+tags_corpus <- tm_map(tags_corpus, removePunctuation)
+# Remove numbers
+tags_corpus <- tm_map(tags_corpus, removeNumbers)
+# Remove english common stopwords
+tags_corpus <- tm_map(tags_corpus, removeWords, stopwords("english"))
+
+
+dtm_tags <- TermDocumentMatrix(tags_corpus)
+m_tags <- as.matrix(dtm_tags)
+v_tags <- sort(rowSums(m_tags),decreasing=TRUE)
+d_tags <- data.frame(word = names(v_tags),freq=v_tags)
+head(d_tags, 20)
+
+```
+
+### Variable: main_speaker
+The variable **main_speaker** contains the name of the speaker. There are 2156 unique speakers of the 2550 TED talks. Below is a graph showing the top 15 speakers by number of TED talks. This could be made a boolean predictor in a future model.
+
+```{r EDA main_speaker, echo=TRUE}
+main_speaker <- TedRaw %>%
+  group_by(main_speaker) %>%
+  tally(name ="numTalks") 
+
+main_speaker <- arrange(main_speaker, desc(numTalks))
+main_speakertop <- head(main_speaker,15)
+
+ggplot(data=main_speakertop, aes(x=main_speaker, y=numTalks)) +
+  #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
+  geom_bar(stat = "identity", fill = '#c51b8a')+
+  geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
+  labs(x = "Speaker Name", y = "Count of TED Talks",
+       title = "Talks by 15 most frequent speakers")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Variables not included
+The following variables were removed from the dataset.  
+**name** -- this contains duplicate information as it is the title and speaker combined.  
+**ratings** -- too complex to parse left out for simplification.  
+**related talks** -- this is a list of urls, it provides no meaning.  
+**url** -- the url of the talk provides no meaning.  
 
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.

@@ -70,4 +70,38 @@ dtm_title <- TermDocumentMatrix(title_corpus)
 m_title <- as.matrix(dtm_title)
 v_title <- sort(rowSums(m_title),decreasing=TRUE)
 d_title <- data.frame(word = names(v_title),freq=v_title)
-head(d_title, 50)
+
+
+############################################
+#Work on finding frequency of the tag column
+############################################
+
+TedRaw$tags <- TedRaw$tags %>%
+  str_replace_all('\\[','') %>% 
+  str_replace_all('\\]','')   %>% 
+  str_replace_all("\\'",' ') %>% 
+  str_replace_all(',',' ') %>% 
+  tolower()
+
+#talk_tags <- unnest_tokens(ted3,tags1,tags) %>% select(sno,tags1)
+#datatable(head(talk_tags,10))
+
+tags_corpus <- Corpus(VectorSource(TedRaw$tags))
+
+# Remove punctuation
+tags_corpus <- tm_map(tags_corpus, removePunctuation)
+# Remove numbers
+tags_corpus <- tm_map(tags_corpus, removeNumbers)
+# Remove english common stopwords
+tags_corpus <- tm_map(tags_corpus, removeWords, stopwords("english"))
+
+
+dtm_tags <- TermDocumentMatrix(tags_corpus)
+m_tags <- as.matrix(dtm_tags)
+v_tags <- sort(rowSums(m_tags),decreasing=TRUE)
+d_tags <- data.frame(word = names(v_tags),freq=v_tags)
+head(d_tags, 20)
+
+
+
+

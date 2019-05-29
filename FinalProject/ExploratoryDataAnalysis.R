@@ -10,6 +10,15 @@ library(lubridate)
 
 TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
 
+
+###eda for num_speaker
+
+ggscatter(TedRaw, x = "num_speaker", y = "views", 
+          add = "reg.line", conf.int = TRUE, color = "blue",
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "number of speakers", ylab = "views")
+
+
 ###############################################
 #EDA for nums: comments, duration, languages
 ###############################################
@@ -222,5 +231,24 @@ ggplot(data=published_date_month, aes(x=published_date_month, y=numTalks)) +
   geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
   labs(x = "Day of week", y = "Count of TED Talks",
        title = "Talks by published date (month)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+######main speaker
+
+##speaker occupation
+main_speaker <- TedRaw %>%
+  group_by(main_speaker) %>%
+  tally(name ="numTalks") 
+
+main_speaker <- arrange(main_speaker, desc(numTalks))
+main_speakertop <- head(main_speaker,15)
+
+ggplot(data=main_speakertop, aes(x=main_speaker, y=numTalks)) +
+  #geom_point(stat = "identity", aes(color = '#2b8cbe'))+
+  geom_bar(stat = "identity", fill = '#c51b8a')+
+  geom_text(aes(label = numTalks), vjust = 1.6, color = "white", size = 3)+
+  labs(x = "Speaker Name", y = "Count of TED Talks",
+       title = "Talks by 15 most frequent speakers")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
