@@ -280,8 +280,10 @@ The variable **description** is a snippet of text summarizing what the talk is a
 
 
 Below is a word frequency analysis on the description value. Outputted are the top 50 words. These words feel less like they capture the theme of the talk than the title, but a few might still make decent boolean predictors for future models. 
-
 ```{r EDA description, warning=FALSE}
+############################################
+#Work on finding frequency of the description column
+############################################
 description_corpus <- Corpus(VectorSource(TedRaw$description))
 
 # Convert the text to lower case
@@ -298,11 +300,12 @@ m_description <- as.matrix(dtm_description)
 v_description <- sort(rowSums(m_description),decreasing=TRUE)
 d_description <- data.frame(word = names(v_description),freq=v_description)
 head(d_description, 50)
+
 ```
 
 
 ### Variable: tags
-The variable **tags** is a set of phrases that describe that talk. Each talk has a few tags associated with. Below is a word frequency analysis on the top 20 tags. These would likely make great boolean predictors since they appear fairly frequently amongst the dataset.  
+The variable **tags** is a set of phrases that describe that talk. Each talk has a few tags associated with. Below is a word frequency analysis on the top 30 tags. These would likely make great boolean predictors since they appear fairly frequently amongst the dataset.  
 
 
 ```{r EDA tags, echo=TRUE, warning=FALSE}
@@ -330,7 +333,7 @@ dtm_tags <- TermDocumentMatrix(tags_corpus)
 m_tags <- as.matrix(dtm_tags)
 v_tags <- sort(rowSums(m_tags),decreasing=TRUE)
 d_tags <- data.frame(word = names(v_tags),freq=v_tags)
-head(d_tags, 20)
+head(d_tags, 30)
 
 ```
 
@@ -360,6 +363,148 @@ The following variables were removed from the dataset.
 **ratings** -- too complex to parse left out for simplification.  
 **related talks** -- this is a list of urls, it provides no meaning.  
 **url** -- the url of the talk provides no meaning.  
+
+## Data Transformation
+
+Below is the code to tranform the data based on our findings in the EDA section. 
+The following variables were removed: film_date, name, num_speaker, published_date, ratings, and related_talks. **title** was transformed to 20 boolean columns based on if the title contains the top 20 words. **tags** was transformed to 50 boolean columns based on if the talk contains some of the top 50 tags. **speaker_occupation** was transformed to 15 boolean columns representing if the occupation contains the top 15 occupations- note to catch more talks if the occupation was a part of another occupation it was considered (ex. singer/song writer is considered a writer).**main_speaker** was transformed to 15 boolean colums denoting if the talk was given by one of the 15 most frequent speakers.  **event** was transformed to 15 boolean columsn denoting if the talk happened at that event. **description** was transformed to 30 boolean columsn denoting if the talk description contains that word.  
+
+```{r}
+library(tidyverse)
+
+TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
+
+#comments(as is)
+#duration (as is)
+#languages (as is)
+#views (as is)
+
+TedRaw$film_date <- NULL
+TedRaw$name <- NULL
+TedRaw$num_speaker <- NULL
+TedRaw$published_date <- NULL
+TedRaw$ratings <- NULL
+TedRaw$related_talks <- NULL
+
+####################
+## title
+##loop through top 20 words and create boolean columns for them
+
+for(i in 1:20){
+  col_name <- paste("tags",d_title$word[i], sep = "_")
+  
+  TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(d_title$word[i], TedRaw$title, fixed = TRUE))
+  
+}
+
+TedRaw$title <- NULL
+
+
+####################
+## tags
+##loop through top 50 tags and create boolean columns for them
+
+for(i in 1:50){
+  col_name <- paste("tags",d_tags$word[i], sep = "_")
+  
+  TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(d_tags$word[i], TedRaw$tags, fixed = TRUE))
+  
+}
+
+TedRaw$tags <- NULL
+
+
+
+####################
+## for speaker_occupation
+##loop through top 15 occupations and create boolean columns for them
+
+for(i in 1:15){
+  col_name <- paste("speaker_occupation",speaker_occupationtop$speaker_occupation[i], sep = "_")
+  
+  TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(speaker_occupationtop$speaker_occupation[i], TedRaw$speaker_occupation, fixed = TRUE)
+              )
+  
+}
+
+TedRaw$speaker_occupation <- NULL
+
+
+####################
+## for main_speaker
+##loop through top 15 speakers and create boolean columns for them
+
+for(i in 1:15){
+  col_name <- paste("speaker",main_speakertop$main_speaker[i], sep = "_")
+  
+  TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(main_speakertop$main_speaker[i], TedRaw$main_speaker, fixed = TRUE))
+  
+}
+
+TedRaw$main_speaker <- NULL
+
+
+###################
+# for event 
+## loop through the top 20 events and create boolean columns for them
+
+for(i in 1:20){
+  col_name <- paste("event",eventtop$event[i], sep = "_")
+  
+  TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(eventtop$event[i], TedRaw$event, fixed = TRUE))
+  
+}
+
+TedRaw$event <- NULL
+
+
+
+####################
+## for description
+##loop through top 30 description words and create boolean columns for them
+for(i in 1:30){
+  col_name <- paste("description",d_description$word[i], sep = "_")
+  
+ TedRaw <-  TedRaw %>%
+    mutate(!!col_name := 
+             grepl(d_description$word[i], TedRaw$description, fixed = TRUE))
+
+}
+
+TedRaw$description <- NULL
+
+TedClean <- TedRaw
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
