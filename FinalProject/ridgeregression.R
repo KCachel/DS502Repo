@@ -1,10 +1,10 @@
 library(glmnet)
 
 set.seed(1)
-
-y <- as.double(as.matrix(TedRaw$views)) # Only class
-TedClean$views <- NULL
-x <- as.matrix(TedClean) # Removes class
+data <- TedClean
+y <- as.double(as.matrix(data$views)) # Only class
+data$views <- NULL
+x <- as.matrix(data) # Removes class
 
 # Fitting the model (Ridge: Alpha = 0)
 #select test and train data
@@ -38,6 +38,7 @@ mean((ridge.pred -y.test)^2)
 # so the test MSE decreased by half but it is still very large
 
 #Refit ridge regression model on the full data set with cv chosen lambda
+set.seed(1)
 out <- glmnet(x,y,alpha=0)
 predict(out,type = "coefficients",s=bestlam)
 

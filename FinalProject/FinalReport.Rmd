@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Predicting TED Talk Views
 
-```{r initialize, echo=TRUE, warning=FALSE}
+```{r initialize, echo=TRUE, message=FALSE, warning=FALSE}
 library(ggplot2) # Data visualisation
 library(reshape2)
 library(corrplot)
@@ -22,7 +22,7 @@ library(lubridate)
 library(ggpubr)
 library(tm)
 library(tidyverse)
-TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
+TedRaw <- read.csv(file="ted_main.csv", header=TRUE, sep=",")
 
 ```
 
@@ -372,7 +372,7 @@ The following variables were removed: film_date, name, num_speaker, published_da
 ```{r}
 library(tidyverse)
 
-TedRaw <- read.csv(file="/cloud/project/FinalProject/ted_main.csv", header=TRUE, sep=",")
+TedRaw <- read.csv(file="ted_main.csv", header=TRUE, sep=",")
 
 #comments(as is)
 #duration (as is)
@@ -385,6 +385,7 @@ TedRaw$num_speaker <- NULL
 TedRaw$published_date <- NULL
 TedRaw$ratings <- NULL
 TedRaw$related_talks <- NULL
+TedRaw$url <- NULL
 
 ####################
 ## title
@@ -429,7 +430,7 @@ for(i in 1:15){
   TedRaw <-  TedRaw %>%
     mutate(!!col_name := 
              grepl(speaker_occupationtop$speaker_occupation[i], TedRaw$speaker_occupation, fixed = TRUE)
-              )
+    )
   
 }
 
@@ -475,16 +476,182 @@ TedRaw$event <- NULL
 for(i in 1:30){
   col_name <- paste("description",d_description$word[i], sep = "_")
   
- TedRaw <-  TedRaw %>%
+  TedRaw <-  TedRaw %>%
     mutate(!!col_name := 
              grepl(d_description$word[i], TedRaw$description, fixed = TRUE))
-
+  
 }
 
 TedRaw$description <- NULL
 
-TedClean <- TedRaw
+TedClean <- TedRaw %>% dplyr::rename_all(funs(make.names(.)))
 ```
+
+## Building and evaluating Models
+In order to understand what predictors influence the number of views the most we built a few different models.
+
+### Linear Regression
+Below are the results for the full linear regression model. 
+```{r}
+##Full linear regression model
+set.seed(1)
+summary(lm(views~., TedClean))
+```
+
+
+### Ridge Regression
+
+First we built a ridge regression model with a really large lambda value. 
+
+```{r ridge large lambda, message=FALSE, warning=FALSE}
+library(glmnet)
+
+set.seed(1)
+data <-TedClean
+
+y <- as.double(as.matrix(data$views)) # Only class
+data$views <- NULL
+x <- as.matrix(data) # Removes class
+
+# Fitting the model (Ridge: Alpha = 0)
+#select test and train data
+set.seed(1)
+train <- sample(1:nrow(x),nrow(x)/2)
+test <- (-train)
+y.test <- y[test]
+
+ridge.mod <-glmnet(x[train,],y[train], alpha = 0)
+
+#ridge regression with really large lambda
+ridge.predlarge <- predict(ridge.mod,s=1e10,newx = x[test,])
+#test MSE for large lambda
+mean((ridge.predlarge-y.test)^2)
+```
+
+Ran ridge regression with cross-validation.
+
+```{r Ridge with CV}
+#ridge regression with cross validation
+
+#first select best lambda
+set.seed(1)
+cv.out <- cv.glmnet(x[train,],y[train],alpha = 0)
+plot(cv.out)
+
+bestlam <- cv.out$lambda.min
+bestlam
+
+#run with best lambda
+ridge.pred <- predict(ridge.mod,s=bestlam,newx = x[test,])
+
+#what is test MSE associeated with lambda = bestlam?
+mean((ridge.pred -y.test)^2)
+# so the test MSE decreased by half but it is still very large
+
+```
+
+
+Refit ridge regresion with the chosen lambda value.
+
+```{r refit with chosen lambda ridge}
+#Refit ridge regression model on the full data set with cv chosen lambda
+set.seed(1)
+out <- glmnet(x,y,alpha=0)
+predict(out,type = "coefficients",s=bestlam)
+
+##As expect none of the coefficients are zero and this is an highly uninterpretabe model.
+
+```
+
+
+### Lasso
+
+Run lasso
+
+```{r lasso}
+library(glmnet)
+
+set.seed(1)
+data <- TedClean
+y <- as.double(as.matrix(data$views)) # Only class
+data$views <- NULL
+x <- as.matrix(data) # Removes class
+
+
+# Fitting the model (Ridge: Alpha = 0)
+#select test and train data
+set.seed(1)
+train <- sample(1:nrow(x),nrow(x)/2)
+test <- (-train)
+y.test <- y[test]
+
+lasso.mod <- glmnet(x[train,],y[train], alpha = 1)
+plot(lasso.mod)
+
+#perform cross validation with lasso
+set.seed(1)
+cv.outLasso <- cv.glmnet(x[train,],y[train],alpha=1)
+plot(cv.outLasso)
+
+bestlamlasso <- cv.outLasso$lambda.min
+lasso.pred <- predict(lasso.mod,bestlamlasso, newx=x[test,])
+mean((lasso.pred - y.test)^2)
+#lower test MSE that ridge regression with lambda chosen by cv
+```
+
+refit lasso  
+
+```{r refit lasso model}
+#refit lasso
+set.seed(1)
+outlasso <- glmnet(x,y,alpha=1)
+lasso.coef <- predict(outlasso,type = "coefficients", s=bestlamlasso)
+lasso.coef
+```
+
+
+
+### Bagging
+
+```{r}
+library(randomForest)
+
+set.seed(1)
+train <- sample(1:nrow(TedClean),nrow(TedClean)/2)
+test <- (-train)
+
+Ted.test <-TedClean[-train,"views"]
+
+bag.Ted <- randomForest(views~., data=TedClean, subset = train,
+                        mtry = 145, importance =T)
+bag.Ted
+
+#how does the bagged model (all predictors) perform on the test?
+yhat.bag <- predict(bag.Ted,newdata=TedClean[-train,])
+mean((yhat.bag -Ted.test)^2)
+
+importance(bag.Ted)
+varImpPlot(bag.Ted)
+```
+
+
+
+```{r}
+# try random forest with p/3 variables
+set.seed(1)
+rf.Ted <- randomForest(views~., data=TedClean, subset = train,
+                       importance = T)
+yhat.rf <- predict(rf.Ted,newdata=TedClean[-train,])
+#much lower MSE error, random forest showed an improvement over bagging
+mean((yhat.rf-Ted.test)^2)
+
+importance(rf.Ted)
+varImpPlot(rf.Ted)
+
+```
+
+
+### Random Forest
 
 
 

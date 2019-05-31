@@ -1,11 +1,10 @@
 library(glmnet)
 
 set.seed(1)
-
-
-y <- as.double(as.matrix(TedRaw$views)) # Only class
-TedRaw$views <- NULL
-x <- as.matrix(TedClean) # Removes class
+data <- TedClean
+y <- as.double(as.matrix(data$views)) # Only class
+data$views <- NULL
+x <- as.matrix(data) # Removes class
 
 
 # Fitting the model (Ridge: Alpha = 0)
@@ -29,6 +28,7 @@ mean((lasso.pred - y.test)^2)
 #lower test MSE that ridge regression with lambda chosen by cv
 
 #refit lasso
+set.seed(1)
 outlasso <- glmnet(x,y,alpha=1)
 lasso.coef <- predict(outlasso,type = "coefficients", s=bestlamlasso)
 lasso.coef
