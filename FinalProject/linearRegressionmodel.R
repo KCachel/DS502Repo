@@ -7,6 +7,7 @@ summary(lm(views~., TedClean))
 
 
 
+## run individual linear regression
 data <- TedClean
 col10 <- names(TedClean)[-1]
 

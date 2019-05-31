@@ -2,18 +2,44 @@ library(glmnet)
 
 set.seed(1)
 
-y <- as.double(as.matrix(TedClean$views)) # Only class
+y <- as.double(as.matrix(TedRaw$views)) # Only class
 TedClean$views <- NULL
 x <- as.matrix(TedClean) # Removes class
 
-
 # Fitting the model (Ridge: Alpha = 0)
+#select test and train data
+set.seed(1)
+train <- sample(1:nrow(x),nrow(x)/2)
+test <- (-train)
+y.test <- y[test]
 
-mod.ridge <- cv.glmnet(x, y, alpha=0, lambda = grid, standardize=TRUE, type.measure='auc')
-mod.ridge$lambda
+ridge.mod <-glmnet(x[train,],y[train], alpha = 0)
 
-grid <- 10^seq(10,-2, length =100)
+#ridge regression with really large lambda
+ridge.predlarge <- predict(ridge.mod,s=1e10,newx = x[test,])
+#test MSE for large lambda
+mean((ridge.predlarge-y.test)^2)
 
-mod.lasso <- cv.glmnet(x,y, alpha = 1, lambda = grid)
+#ridge regression with cross validation
 
-plot(mod.lasso)
+#first select best lambda
+set.seed(1)
+cv.out <- cv.glmnet(x[train,],y[train],alpha = 0)
+plot(cv.out)
+
+bestlam <- cv.out$lambda.min
+bestlam
+
+#run with best lambda
+ridge.pred <- predict(ridge.mod,s=bestlam,newx = x[test,])
+
+#what is test MSE associeated with lambda = bestlam?
+mean((ridge.pred -y.test)^2)
+# so the test MSE decreased by half but it is still very large
+
+#Refit ridge regression model on the full data set with cv chosen lambda
+out <- glmnet(x,y,alpha=0)
+predict(out,type = "coefficients",s=bestlam)
+
+##As expect none of the coefficients are zero and this is an highly uninterpretabe model.
+
