@@ -1,16 +1,16 @@
 ---
-title: "FinalReport"
+title: 'Final Project Report: Predicting TED Talk Views'
 author: "Kathleen Cachel"
-date: "5/28/2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Predicting TED Talk Views
-
+Load needed packages.
 ```{r initialize, echo=TRUE, message=FALSE, warning=FALSE}
 library(ggplot2) # Data visualisation
 library(reshape2)
@@ -95,7 +95,7 @@ ggscatter(TedRaw, x = "duration", y = "views",
 
 
 ### Variable: languages
-The variable **languages** is an integer denoting how manuy languages the talk is available to view in. Presumeably an increase in translations should increas views. 
+The variable **languages** is an integer denoting how many languages the talk is available to view in. Presumeably an increase in translations should increase views. 
 
 In the graph below we can see that there is a fairly normal distribution for the number of languages. 
 ```{r}
@@ -119,6 +119,14 @@ ggplot(data=languages, aes(x=languages, y=numTalks)) +
 
 
 Is **languages** correlated with **views**? A little.. Below we can see that the R - value is 0.38 and is statistically significant. We will keep the variable in future models. 
+
+```{r}
+ggscatter(TedRaw, x = "languages", y = "views", 
+          add = "reg.line", conf.int = TRUE, color = "blue",
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "languages", ylab = "views")
+```
+
 
 ### Variable: speaker_occupation
 The variable **speaker_occupation** is the occupation of the main speaker. There are 1459 unique occupations. Below is a graph indicating the top 15 occupations. Since they make up 402 talks (16%) it could be worth exploring breaking the top 15 or 10 occupations into boolean predictors in a future model.
@@ -172,7 +180,7 @@ ggplot(data=eventtop, aes(x=event, y=numTalks)) +
 ```
 
 ### Variable: film_date
-The variable **film_date** is the date the TED Talk was filmed. Below is a plot of TED talks by their film date. We likely won't use *film_date** as predictor in favor of **event**.
+The variable **film_date** is the date the TED Talk was filmed. Below is a plot of TED talks by their film date. We likely won't use **film_date** as predictor in favor of **event**.
 
 ```{r EDA filmed_date}
 #film_date
@@ -276,7 +284,7 @@ head(d_title, 20)
 ```
 
 ### Variable: description
-The variable **description** is a snippet of text summarizing what the talk is about. There are 2550 unique descriptions. Including the full description as a predictor really isn't feasible, but there may some common words that we could as as boolean predictors to our model. 
+The variable **description** is a snippet of text summarizing what the talk is about. There are 2550 unique descriptions. Including the full description as a predictor really isn't feasible, but there may be some common words that we could as as boolean predictors to our model. 
 
 
 Below is a word frequency analysis on the description value. Outputted are the top 50 words. These words feel less like they capture the theme of the talk than the title, but a few might still make decent boolean predictors for future models. 
@@ -491,7 +499,7 @@ TedClean <- TedRaw %>% dplyr::rename_all(funs(make.names(.)))
 In order to understand what predictors influence the number of views the most we built a few different models.
 
 ### Linear Regression
-Below are the results for the full linear regression model. 
+Below are the results for the full linear regression model. For the full linear regression model we can see that the following predictors were deemed as significant to the model and contributed to an increase in views: comments, duration, languages, tag contains “life”, and tag contains “make”. The following predictors were deemed as significant to the model and contributed to a decrease in views: tag contains “can”, tag contains “new”, tag contains “world”, tag contains “art”, and tag contains “design”. The R-squared for the linear model is 0.4359, which is pretty low. Ideally, we would improve on this with other models.  
 ```{r}
 ##Full linear regression model
 set.seed(1)
@@ -501,7 +509,7 @@ summary(lm(views~., TedClean))
 
 ### Ridge Regression
 
-First we built a ridge regression model with a really large lambda value. 
+The next type of model to try is a ridge regression. For the first model we try an approach by selecting lambda to be really large (equal to 1e10 in this case). In this case the test MSE comes to 6.79e10.
 
 ```{r ridge large lambda, message=FALSE, warning=FALSE}
 library(glmnet)
@@ -528,7 +536,7 @@ ridge.predlarge <- predict(ridge.mod,s=1e10,newx = x[test,])
 mean((ridge.predlarge-y.test)^2)
 ```
 
-Ran ridge regression with cross-validation.
+Next, we try ridge regression with cross-validation. The best lambda values is determined to be 502331.5, so we use that value in our model and find that our test MSE for this approach significantly decreases to 4.37e12. This is a high MSE but better than the MSE with the large value of lambda. 
 
 ```{r Ridge with CV}
 #ridge regression with cross validation
@@ -551,7 +559,7 @@ mean((ridge.pred -y.test)^2)
 ```
 
 
-Refit ridge regresion with the chosen lambda value.
+Below, we refit our ridge regression model with the chosen lambda value. As expected none of the coefficients are zero, and the model is highly uninterpretable. Ridge regression was a fun approach to see what would happen, but it doesn’t yield any meaningful results. Next we will try a lasso approach, which is expected to help with variable selection.  
 
 ```{r refit with chosen lambda ridge}
 #Refit ridge regression model on the full data set with cv chosen lambda
@@ -566,7 +574,7 @@ predict(out,type = "coefficients",s=bestlam)
 
 ### Lasso
 
-Run lasso
+Below we use a lasso approach with lambda determined to be 27438.74. We can see the test MSE is 4.24e12 which is lower that the test MSE of ridge regression.
 
 ```{r lasso}
 library(glmnet)
@@ -594,12 +602,13 @@ cv.outLasso <- cv.glmnet(x[train,],y[train],alpha=1)
 plot(cv.outLasso)
 
 bestlamlasso <- cv.outLasso$lambda.min
+bestlamlasso
 lasso.pred <- predict(lasso.mod,bestlamlasso, newx=x[test,])
 mean((lasso.pred - y.test)^2)
 #lower test MSE that ridge regression with lambda chosen by cv
 ```
 
-refit lasso  
+Below we fit the lasso model. We can see that is has deemed a number of predictors significant while also remove a chunk.  The results can be summarized as the following have a positive effect on the number of views: comments, duration, language, tags: life, make, brain, better, love, power, health, business, entertainment, innovation, society, communication, creativity, humanity, performance, psychology, and nature, speaker occupation – writer, author, speaker is Julian Treasure, event is – TED2014, TED2015, TED2016, TEDGlobal.2012, TED2017,description contains – talk, people, ted, one, like, work, help, even, time, change, and now.  This model is much more interpretable than the ridge regression model, but does contain a large number of predictors. 
 
 ```{r refit lasso model}
 #refit lasso
@@ -612,6 +621,8 @@ lasso.coef
 
 
 ### Bagging
+
+Now we try a bagged model. Running it on the test set we see that the test MSE is 3.21e12, which is lower than our lasso model. 51.09% of the variables are explain in this model. We can see that by far the 3 most important variables are comments, languages, and duration. Then there are some interesting ones are the event being TED2017,TED2015, or TED2016, the speaker being Julian Treasure and the tag containing brain.  
 
 ```{r}
 library(randomForest)
@@ -634,13 +645,17 @@ importance(bag.Ted)
 varImpPlot(bag.Ted)
 ```
 
+## Random Forest
 
+Now we try the random forest approach with p/3 variables. We can see the test MSE is 3.33e12 still lower than ridge regression and lasso but not lower than the bagged model. Again, we see that comments, languages, and duration are the most important variables. A few others that stand out are: event being TED2015 or TED2017, the speaker being Julian Treasure, the tags:  power, performance, global, issues, brain, invention, and society. 
 
 ```{r}
 # try random forest with p/3 variables
 set.seed(1)
 rf.Ted <- randomForest(views~., data=TedClean, subset = train,
                        importance = T)
+
+rf.Ted
 yhat.rf <- predict(rf.Ted,newdata=TedClean[-train,])
 #much lower MSE error, random forest showed an improvement over bagging
 mean((yhat.rf-Ted.test)^2)
@@ -651,43 +666,14 @@ varImpPlot(rf.Ted)
 ```
 
 
-### Random Forest
+# Conclusion
+Five approaches were tried  to determine what predictors had significant effects on the number of views a TED Talk received. The models all had pretty high test MSE, and while a bagged approach fit the data best out of all the models it was not an objectively great fit. However, there were a few predictors that stood out amongst multiple models which leads me to conclude that they are significant. The ridge regression model was largely uninterpretable so not much was conclude much from it. The predictors comments, duration, and languages were all top predictors in in the Linear, Lasso, Bagged, and Random Forest therefore we can be fairly confident those are significant. In both the Linear and Lasso model the tags “art” and “design” were significant in decreasing the number of views. In the Lasso and Bagged models the tag “brain” was shown to increase the number of views. Finally, the speaker Julian Treasure was deemed to significantly increase the number of views in the Lasso and Bagged models. The findings can be summarized by saying an increase in the comment number, length of the talk, and languages translated into are good indicators of an increase in the number of views the talk receives. As far as the content, talks tagged “brain” receive more views, and talks tagged “art” and “design” tend to receive less views. The speaker Julian Treasure is shown to command a significant number of views.  
+
+In terms of improving the models, having more data would go a really long way. While, there are 2550 talks in the dataset, the data was split in half for training and testing. It was a difficult choice between training on more data or doing an even split, but the dataset contains a lot of really unique talks and ultimately a lot of predictors. It is entirely plausible that whether one really popular talk is in the training or test dataset actually makes a difference. The original 17 columns were transformed  into 145 predictors and could have been made into more. Additionally, pulling in more data could have helped with any amount of overfitting that was happening.  
+
+While this problem was approached as a regression problem, in the future it could be interesting to try classification and see if that gleaned any interesting results. It might lead to something that would be difficult to interpret, but could show more precise classes. 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
